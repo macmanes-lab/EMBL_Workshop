@@ -247,8 +247,7 @@ dammit databases --database-dir $HOME/dammit_dbs \
 dammit annotate $HOME/assembly_practical/assemblies/ORPtest_YOURNAME.orthomerged.fa \
 --busco-group eukaryota \
 --n_threads 4 \
---database-dir $HOME/dammit_dbs/
---full
+--database-dir $HOME/dammit_dbs/ --full
 
 ```
 
