@@ -61,8 +61,8 @@ sed -i 's_--prefix_-q 33 --prefix_g' $HOME/Oyster_River_Protocol/software/Shanno
 $HOME/Oyster_River_Protocol/oyster.mk main \
 MEM=7 \
 CPU=2 \
-READ1=$HOME/share/Day04/read.1.fastq \
-READ2=$HOME/share/Day04/read.2.fastq \
+READ1=$HOME/share/Day3/read.1.fastq \
+READ2=$HOME/share/Day3/read.2.fastq \
 RUNOUT=ORPtest_YOURNAME
 ```
 
