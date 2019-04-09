@@ -225,7 +225,7 @@ Installing (let's go rogue!!)
 
 ```
 conda deactivate #to exit your current conda environment.  
-conda create --name dammit # make a new conda environent
+conda create -y --name dammit # make a new conda environent
 conda activate dammit #run the new envoronment
 conda install -y -c bioconda dammit # install dammit, this will take a few minutes
 ```
