@@ -248,6 +248,19 @@ dammit annotate $HOME/assembly_practical/assemblies/sampledata.ORP.fasta \
 --database-dir $HOME/share/Day3/dammit_dbs
 ```
 
+Look at the main output files:
+
+```
+$HOME/assembly_practical/dammit/sampledata.ORP.fasta.dammit/sampledata.ORP.fasta.dammit.fasta
+$HOME/assembly_practical/dammit/sampledata.ORP.fasta.dammit/sampledata.ORP.fasta.dammit.gff3
+```
+
+#### What next??
+
+1. this is your final annotated assembly - you should save it someplace(s)
+2. Use it for whatever downstream analysis.
+3. Upload it, the reads, and the code you used to make the assembly, to a public repository when you publish. 
+
 
 #### Bibliography
 
