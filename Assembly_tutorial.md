@@ -266,8 +266,9 @@ $HOME/assembly_practical/dammit/sampledata.ORP.fasta.dammit/sampledata.ORP.fasta
 
 #### Bibliography
 
-1. Oyster River Protocol: doi 10.7717/peerj.5428
+0. Best practices: doi 10.1101/035642
+1. Oyster River Protocol: doi: 10.7717/peerj.5428
 2. BUSCO: doi: 10.1093/molbev/msx319
-3. TrasRate: doi: 10.1101/gr.196469.115
+3. TransRate: doi: 10.1101/gr.196469.115
 4. Salmon: doi: 10.1038/nmeth.4197
 5. dammit: http://dib-lab.github.io/dammit/
