@@ -86,7 +86,9 @@ RUNOUT=sampledata
 
 the final assembly will be at `assemblies/sampledata.ORP.fasta`
 
-Let's undestand this command:
+#### can we talk about the assembly stats? Why are they so good/so bad??
+
+Let's understand this command:
 
 - `$HOME/Oyster_River_Protocol/oyster.mk` the ORP is written as a Makefile, which is a nice way to organize computational pipelines. With few exceptions, if your run fails mid-way through the process, restarting is using the same command will pick up at the point at which it failed.
 - `STRAND` Was the library prepared using a strand-specific approach. In 2019, most libraries are, and `RF` is the most common.
@@ -237,7 +239,7 @@ dammit databases --database-dir $HOME/share/Day3/dammit_dbs \
 --install --busco-group eukaryota
 ```
 
-##### Running the Annotation (untested and potentially broken)
+##### Running the Annotation (minimally tested and potentially broken)
 
 ```
 mkdir -p $HOME/assembly_practical/dammit/ && cd $HOME/assembly_practical/dammit
@@ -257,9 +259,9 @@ $HOME/assembly_practical/dammit/sampledata.ORP.fasta.dammit/sampledata.ORP.fasta
 
 #### What next??
 
-1. this is your final annotated assembly - you should save it someplace(s)
+1. This is your final annotated assembly - you should save it someplace(s)
 2. Use it for whatever downstream analysis.
-3. Upload it, the reads, and the code you used to make the assembly, to a public repository when you publish. 
+3. Upload it, the reads, and the code you used to make the assembly, to a public repository when you publish.
 
 
 #### Bibliography
