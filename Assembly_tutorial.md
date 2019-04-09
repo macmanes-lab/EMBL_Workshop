@@ -8,7 +8,7 @@ Transcriptome Assembly Practical
   - BUSCO and TransRate
 - Quantifying transcript expression levels
   - Using Salmon
-- Functionally annotating transcripts (time permitting)
+- Functionally annotating transcripts (won't get here, but see code)
   - dammit
 - Predicting coding regions (won't get here, but see code)
   - TransDecoder
@@ -17,7 +17,7 @@ Transcriptome Assembly Practical
 
 One of the nice things about the ORP is that it does, automatically, the assembly, evaluation, and quantification of the assembly. I will more fully introduce these procedures in the lecture part of the day.
 
-All required software and data are provided pre-installed on an Amazon EC2 AMI. For when you get home, and want to install this on your own machines, see http://oyster-river-protocol.readthedocs.io/en/latest/aws_setup.html
+All required software and data are provided pre-installed on a Docker VM. For when you get home, and want to install this on your own machines, see http://oyster-river-protocol.readthedocs.io/en/latest/aws_setup.html and https://oyster-river-protocol.readthedocs.io/en/latest/docker_install.html
 
 The workshop materials here expect that you have some familiarity with UNIX. If you need a refresher, the Command Line Bootcamp is good (http://rik.smith-unna.com/command_line_bootcamp/). For extended prep, see DataCarpentry and SoftwareCarpentry organizations.
 
@@ -36,6 +36,20 @@ The data used in this tutorial are from SRR1221220, which is a RNAseq dataset fr
 - Used Picard to move from SAM to fastq
 - Extracted a random 80,000 read pairs from the larger fastq using seqtk.
 
+#### Run Docker image
+
+What you'll notice is that we'll just launch the image in our terminal - no using the web-browser interface. I'm sure Bastian will at this point tell us why this might not be a good choice, but it works for me, and should for you, too.
+
+```
+docker run -it -v /media/penelopeprime/RNA-Sequence\ \
+Analysis:/home/training/share:ro \
+macmaneslab/orp:2.2.5_ebi2019 bash
+```
+
+At this point, your terminal prompt should look something like this `training@1f518d44b503:~$`
+
+
+
 #### Tutorial Begins
 
 The 1st thing you should always do when logging in to a new machine is explore the directory structure. Where are the data, where are programs installed, etc.
@@ -48,97 +62,112 @@ mkdir $HOME/assembly_practical && cd $HOME/assembly_practical
 
 What is this `&&` thing?? It basically serves to link two commands together, **IF** the 1st one succeeds. So, `do command 1, do command 2 if 1 succeeds, do command 3 if command 2 succeeds`
 
-##### Assemble using the ORP
+#### Assemble using the ORP
 
-There is one small bug in the Shannon assembler, which I fixed after Nico made the Docker container. Easy fix (which you should never have to do, again).
+Activate the conda environment:
+
+```
+conda activate orp
+```
+
+At this point, your command prompt should look something like  `(orp) training@1312b3d53c18:~$`. Note the prefix `(orp)`.
 
 
 ```
-sed -i 's_--prefix_-q 33 --prefix_g' $HOME/Oyster_River_Protocol/software/Shannon/run_quorum.py
+$HOME/Oyster_River_Protocol/oyster.mk \
+STRAND=RF \
+TPM_FILT=1 \
+MEM=10 \
+CPU=8 \
+READ1=$HOME/Oyster_River_Protocol/sampledata/test.1.fq.gz \
+READ2=$HOME/Oyster_River_Protocol/sampledata/test.2.fq.gz \
+RUNOUT=sampledata
 ```
 
-```
-$HOME/Oyster_River_Protocol/oyster.mk main \
-MEM=7 \
-CPU=2 \
-READ1=$HOME/share/Day3/read.1.fastq \
-READ2=$HOME/share/Day3/read.2.fastq \
-RUNOUT=ORPtest_YOURNAME
-```
+the final assembly will be at `assemblies/sampledata.ORP.fasta`
 
-Let's unpack this:
+Let's undestand this command:
 
 - `$HOME/Oyster_River_Protocol/oyster.mk` the ORP is written as a Makefile, which is a nice way to organize computational pipelines. With few exceptions, if your run fails mid-way through the process, restarting is using the same command will pick up at the point at which it failed.
-- `main` Do the whole protocol. If you specified just `trim`
- just the trimming step would be done, and nothing else.
+- `STRAND` Was the library prepared using a strand-specific approach. In 2019, most libraries are, and `RF` is the most common.
+- `TPM_FILT` Do you want to remove* lowly expressed, mostly non-biological transcripts. (you probably do)
 - `MEM` How much RAM do you require (in Gb)? I usually set this to about 10% less than what the computer has.
-- 'CPU' use all that you have.
+- `CPU` use all that you have.
 - `READ1` and `READ2` The ORP requires PE reads, sorry. Assembling with SE reads is not really worth it.. The reads can be gzipped. Always safe(r) to use the full path to the reads.
-- `RUNOUT` Name the output. This name will be included in the final assembly, so choose wisely.
+- `RUNOUT` Name the output. This name will be included in the final assembly, so choose wisely.  No special characters (e.g., `\|*?/`)
 - appending `--dry-run` to the end of the command will print out to your screen the commands that will be run on your dataset, but they won't actually be run.   
+
+
+What is the ORP doing. We'll talk about this in the lecture part of the class.
+
+1. Trim adapters and low quality bases (Phred<2)
+2. Correct the reads
+3. Asssembly using Trinity, SPAdes k=55, SPAdes k=75, TransABySS
+4. For iso-groups from the 4 assemblies, and pick the best member of each isogroup.
+5. BLAST assemblies *using Diamond to Swiss-Prot* and make sure that we have all the unique stuff from each assembly.
+6. cd-hit the assembly
+7. Run Salmon on the assembly
+8. Optionally, filter very lowly expressed trasnscripts, and make sure we are not throwing out "real" stuff.
+9. Run BUSCO
+10. Run TransRate.
+11. Print a report
 
 
 How many resources do you need?
 
 - **RAM** The amount of RAM you need scales with the number of unique kmers. The number of unique kmers is positively correlated with number of reads, which is a far more accessible number. In general, you need about 1GB RAM per million reads.
-- **CPUs** More is better, but machines with between 24 and 64 cores are common. Note the assembly process is not able to leverage MPI.
+- **CPUs** More is better, but machines with between 12 and 64 cores are common. Note the assembly process is not able to leverage MPI.
 
-##### Evaluating content using BUSCO
+##### Evaluating content using BUSCO and TransRate
 
 So you have an assembly, now how good is it? One way is to look at the assembly content. Are all the expected genes present? Fo this part of the exercise, We're going to use a 'real' assembly.
 
-**Note:** The ORP runs BUSCO automatically, and has done so for your dummy assembly. See `$HOME/assembly_practical/reports/run*orthomerged/short_summary*txt`. A real assembly would score **much** better, hopefully...
 
 ```
 mkdir $HOME/assembly_practical/assembly_eval && cd $HOME/assembly_practical/assembly_eval
-
-python $(which run_BUSCO.py) -c 2 \
--m transcriptome \
--i $HOME/share/Day04/SRR1221220.orthomerged.fasta \
---out SRR1221220_ORPtest_YOURNAME
 ```
 
-Unpacking
-- `$(which run_BUSCO.py)` This is a trick to call a script using it's full path, without having to type the full path out yourself. Type `which run_BUSCO.py` and see what it returns..
-- `-m transcriptome` you want to run BUSCO in transcriptome mode. If you were trying to analyze a genome, then your type `-m genome`
-- `-i $HOME/share/SRR1221220.orthomerged.fasta` this is the input
-- `--out SRR1221220` the output prefix.
-- `-c 2` the number of CPUs to use to the analysis. Use as many as you have!
+There are some assemblies in `$HOME/share/Day3/assemblies/` and some reads in `$HOME/share/Day3/reads/`... Each classroom row is going to evaluate a different assembly.
 
+Row1=gar
+Raw2=lamprey
+Row3=mouse
+Row4=turtle
+Row5=wallaby
 
-```
-C:0.3%[S:0.0%,D:0.3%],F:0.3%,M:99.4%,n:303
-
-1	Complete BUSCOs (C)
-0	Complete and single-copy BUSCOs (S)
-1	Complete and duplicated BUSCOs (D)
-1	Fragmented BUSCOs (F)
-301	Missing BUSCOs (M)
-303	Total BUSCO groups searched
-```
-
-##### Evaluating assembly structure using TransRate
+Here is the command for another organism, the deer. Your command will be different!!! The reads are a subset of size 1M read pairs.
 
 ```
-cd $HOME/assembly_practical/assembly_eval
-
-transrate -o transrate_ORPtest_YOURNAME -t 2 \
--a $HOME/assembly_practical/assemblies/ORPtest_YOURNAME.orthomerged.fasta \
---left $HOME/assembly_practical/rcorr/ORPtest_YOURNAME.TRIM_1P.cor.fq \
---right $HOME/assembly_practical/rcorr/ORPtest_YOURNAME.TRIM_2P.cor.fq
-```
-Unpacking
-
-- `-t 2` Two threads. Use more for a real assembly.
-- `-a` The input assembly
-- `--left` and `--right` The reads used to make the assembly.
-
-Note: The ORP runs TransRate automatically, and has done so for your dummy assembly. See `$HOME/assembly_practical/reports/transrate*/assemblies.csv`
-
-This little code snippet will make it easier to view this file.
-
+$HOME/Oyster_River_Protocol/report.mk \
+ASSEMBLY=$HOME/share/Day3/assemblies/deer.ORP.fasta \
+CPU=8 \
+MEM=10 \
+LINEAGE=eukaryota_odb9 \
+READ1=$HOME/share/Day3/reads/deer.1.fq \
+READ2=$HOME/share/Day3/reads/deer.2.fq \
+RUNOUT=deer
 ```
 
+
+Understanding this command:
+
+- `$HOME/Oyster_River_Protocol/report.mk` the ORP is written as a Makefile, which is a nice way to organize computational pipelines. With few exceptions, if your run fails mid-way through the process, restarting is using the same command will pick up at the point at which it failed.
+- `MEM` How much RAM do you require (in Gb)? I usually set this to about 10% less than what the computer has.
+- `CPU` use all that you have.
+- `LINEAGE` Which BUSCO database are you going to use. Here, we will use the eukaryote database.
+- `READ1` and `READ2` The ORP requires PE reads, sorry. Assembling with SE reads is not really worth it.. The reads can be gzipped. Always safe(r) to use the full path to the reads.
+- `RUNOUT` Name the output. This name will be included in the final assembly, so choose wisely.  No special characters (e.g., `\|*?/`)
+- appending `--dry-run` to the end of the command will print out to your screen the commands that will be run on your dataset, but they won't actually be run.   
+
+
+
+This will take about 15 minutes to run. One member for your group - write results on the board. Which assembly is the best?
+
+**Note:** The ORP runs BUSCO automatically, and has done so for your dummy assembly. See `$HOME/assembly_practical/reports/run*ORP/short_summary*txt`. A real assembly would score **much** better, hopefully...
+
+**Note:** The ORP runs TransRate automatically, and has done so for your dummy assembly. See `$HOME/assembly_practical/reports/transrate*/assemblies.csv`. This little code snippet will make it easier to view this file.
+
+```
 paste <(sed -n 1p $HOME/assembly_practical/reports/transrate*/assemblies.csv | tr , '\n') \
 <(sed -n 2p $HOME/assembly_practical/reports/transrate*/assemblies.csv | tr , '\n')
 ```
@@ -187,76 +216,43 @@ weighted	5638.68556
 
 ##### Quantification
 
-
-```
-
-cd $HOME/assembly_practical/assembly_eval/
-
-salmon index --no-version-check \
---type quasi \
--k 31 \
--i ORPtest_YOURNAME.ortho.idx \
--t $HOME/assembly_practical/assemblies/ORPtest_YOURNAME.orthomerged.fasta
-
-salmon quant --no-version-check -p 2 \
--i ORPtest_YOURNAME.ortho.idx \
---seqBias --gcBias -l a \
--1 $HOME/assembly_practical/rcorr/ORPtest_YOURNAME.TRIM_1P.cor.fq \
--2 $HOME/assembly_practical/rcorr/ORPtest_YOURNAME.TRIM_2P.cor.fq \
--o $HOME/assembly_practical/assembly_eval/salmon_orthomerged_ORPtest_YOURNAME
-```
-
-Note: The ORP runs BUSCO automatically, and has done so for your dummy assembly. See `$HOME/assembly_practical/assembly_eval/salmon_orthomerged_ORPtest_YOURNAME/quant.sf` A real assembly would score much better, hopefully...
-
-
-```
-Name    Length  EffectiveLength TPM     NumReads
-Single_29       800     665.243 15070.675944    1080.000000
-Single_23       519     381.486 15963.011041    656.000000
-Single_25       1141    872.521 9075.326798     853.000000
-Single_103      237     82.000  1970.671194     17.407591
-Single_101      350     188.824 2310.625863     47.000000
-Single_55       366     224.992 13368.014888    324.000000
-Single_56       443     268.606 13506.878854    390.823744
-Single_50       936     786.806 6177.772999     523.612910
-Single_53       1355    1235.517        7926.712663     1055.000000
-Shannon_ORPtest.shannon_cremaining1_62_0        3036    3096.499        7700.570713     2568.647157
-```
+The ORP does this.. using Salmon..
 
 #### Annotation using dammit (time permitting)
-See http://www.camillescott.org/dammit/installing.html
+See http://dib-lab.github.io/dammit/install/
 
-##### installing (this has been done for you)
+Installing (let's go rogue!!)
 
 ```
-sudo apt-get update
-sudo apt-get install python-pip python-dev python-numpy
-pip install --upgrade pip
-sudo pip install -U setuptools
-sudo pip install dammit
+conda deactivate #to exit your current conda environment.  
+conda create --name dammit # make a new conda environent
+conda activate dammit #run the new envoronment
+conda install -y -c bioconda dammit # install dammit, this will take a few minutes
+```
+
+##### I've installed the databases for you, using this command. *You don't have to do this*
+
+```
+dammit databases --database-dir $HOME/share/Day3/dammit_dbs \
+--install --busco-group eukaryota
 ```
 
 ##### Running the Annotation (untested and potentially broken)
 
 ```
-mkdir $HOME/busco_dbs
+mkdir -p $HOME/assembly_practical/dammit/ && cd $HOME/assembly_practical/dammit
 
-dammit databases --database-dir $HOME/dammit_dbs \
---install --busco-group eukaryota
-
-dammit annotate $HOME/assembly_practical/assemblies/ORPtest_YOURNAME.orthomerged.fasta \
+dammit annotate $HOME/assembly_practical/assemblies/sampledata.ORP.fasta \
 --busco-group eukaryota \
---n_threads 4 \
---database-dir $HOME/dammit_dbs/
-
+--n_threads 8 \
+--database-dir $HOME/share/Day3/dammit_dbs
 ```
-
 
 
 #### Bibliography
 
-1. Oyster River Protocol: https://www.biorxiv.org/content/early/2017/11/22/177253
+1. Oyster River Protocol: doi 10.7717/peerj.5428
 2. BUSCO: doi: 10.1093/molbev/msx319
 3. TrasRate: doi: 10.1101/gr.196469.115
 4. Salmon: doi: 10.1038/nmeth.4197
-5. dammit: http://www.camillescott.org/dammit/
+5. dammit: http://dib-lab.github.io/dammit/
